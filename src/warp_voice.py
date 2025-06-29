@@ -19,7 +19,7 @@ from pynput import keyboard
 class WarpVoiceFix:
     def __init__(self):
         # Audio thresholds
-        self.silence_threshold = 0.015
+        self.silence_threshold = 0.012  # Increased sensitivity
         self.silence_duration = 3.0
         self.confirmation_silence = 10.0
         self.min_audio_duration = 0.2
@@ -35,7 +35,7 @@ class WarpVoiceFix:
         # Audio setup
         self.audio = pyaudio.PyAudio()
         self.stream = None
-        self.chunk = 1024
+        self.chunk = 512  # Reduced chunk size for faster processing
         self.format = pyaudio.paFloat32
         self.channels = 1
         self.rate = 44100
@@ -143,7 +143,7 @@ class WarpVoiceFix:
             # Voice detection with threshold counting
             if level > self.silence_threshold:
                 samples_above_threshold += 1
-                if samples_above_threshold >= 3:  # Require multiple samples
+                if samples_above_threshold >= 2:  # Reduced required samples for faster response
                     print("\n🗣️  Voice detected - canceling confirmation")
                     if self.click_button("START RECORDING"):
                         print("✅ Recording resumed")
