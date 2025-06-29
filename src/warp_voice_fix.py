@@ -15,12 +15,11 @@ import pyautogui
 import json
 from pathlib import Path
 from pynput import keyboard
-from status_client import StatusClient
 
 class WarpVoiceFix:
     def __init__(self):
         # Audio thresholds
-        self.silence_threshold = 0.012  # Increased sensitivity
+        self.silence_threshold = 0.015
         self.silence_duration = 3.0
         self.confirmation_silence = 10.0
         self.min_audio_duration = 0.2
@@ -36,7 +35,7 @@ class WarpVoiceFix:
         # Audio setup
         self.audio = pyaudio.PyAudio()
         self.stream = None
-        self.chunk = 512  # Reduced chunk size for faster processing
+        self.chunk = 1024
         self.format = pyaudio.paFloat32
         self.channels = 1
         self.rate = 44100
@@ -51,9 +50,6 @@ class WarpVoiceFix:
         # Setup keyboard listener
         self.key_listener = keyboard.Listener(on_press=self.on_key_press)
         self.key_listener.start()
-        
-        # Setup status overlay client
-        self.status_client = StatusClient()
     
     def on_key_press(self, key):
         try:
@@ -111,22 +107,15 @@ class WarpVoiceFix:
                 self.is_recording = True
                 self.is_confirming = False
                 self.manual_confirm = False
-                self.status_client.update_recording(True)
-                self.status_client.update_confirming(False)
             elif action == "STOP RECORDING":
                 self.is_recording = False
                 self.is_confirming = True
                 self.manual_confirm = False
-                self.status_client.update_recording(False)
-                self.status_client.update_confirming(True)
             elif action == "SEND INPUT":
                 self.is_recording = False
                 self.is_confirming = False
                 self.manual_confirm = False
                 self.cycle_count += 1
-                self.status_client.update_recording(False)
-                self.status_client.update_confirming(False)
-                self.status_client.update_cycle(self.cycle_count)
                 pyautogui.press('return')
             return True
         except Exception as e:
@@ -154,7 +143,7 @@ class WarpVoiceFix:
             # Voice detection with threshold counting
             if level > self.silence_threshold:
                 samples_above_threshold += 1
-                if samples_above_threshold >= 2:  # Reduced required samples for faster response
+                if samples_above_threshold >= 3:  # Require multiple samples
                     print("\n🗣️  Voice detected - canceling confirmation")
                     if self.click_button("START RECORDING"):
                         print("✅ Recording resumed")
@@ -171,12 +160,11 @@ class WarpVoiceFix:
                 print(f"\n✅ Auto-confirmed after {self.confirmation_silence}s silence")
                 return True
             
-            # Show progress and update overlay
+            # Show progress
             progress = elapsed / self.confirmation_silence * 20
             bar = "█" * int(progress) + "░" * (20 - int(progress))
             status = "[SPACE] to confirm now" if not self.manual_confirm else "Confirmed!"
             print(f"Confirming: [{bar}] {elapsed:.1f}s | {status}", end='\r')
-            self.status_client.update_timer(elapsed)
             
             time.sleep(0.05)
     
@@ -221,9 +209,6 @@ class WarpVoiceFix:
                         if not self.is_recording and not self.is_confirming:
                             self.click_button("START RECORDING")
                             print(f"🎤 Recording... (Cycle {self.cycle_count})")
-                    
-                    # Update audio level for overlay
-                    self.status_client.update_audio_level(audio_level)
                     
                     if self.is_recording:
                         if current_time - last_level_check >= 0.5:
